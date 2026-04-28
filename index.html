@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elephant Tracker 3D</title>
+
+<!-- Cesium -->
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.95/Build/Cesium/Cesium.js"></script>
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.95/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+
+<!-- PapaParse -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg:       #050d0a;
+    --panel:    #0a1810;
+    --border:   #1a3326;
+    --accent:   #3dff8f;
+    --accent2:  #00c9ff;
+    --warn:     #ffb347;
+    --muted:    #4a7a60;
+    --text:     #c8e8d5;
+    --text-dim: #6aaa85;
+    --danger:   #ff4d6d;
+    --panel-bg: rgba(10,24,16,0.92);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Rajdhani', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    flex-shrink: 0;
+    height: 60px;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+  }
+  .brand-sub {
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+  }
+  .brand-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+
+  .header-sep { flex: 1; }
+
+  /* header time display */
+  #header-time {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    text-shadow: 0 0 12px rgba(61,255,143,0.5);
+    white-space: nowrap;
+    min-width: 200px;
+    text-align: center;
+  }
+
+  /* token input */
+  #token-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(61,255,143,0.06);
+    border: 1px solid rgba(61,255,143,0.3);
+    border-radius: 6px;
+    padding: 0 10px;
+    height: 32px;
+  }
+  #token-wrap label {
+    font-size: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--accent);
+    white-space: nowrap;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+  #token-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    width: 220px;
+  }
+  #token-input::placeholder { color: rgba(200,232,213,0.4); }
+
+  #btn-init {
+    height: 32px;
+    padding: 0 14px;
+    background: var(--accent);
+    color: #050d0a;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: opacity 0.15s;
+  }
+  #btn-init:hover { opacity: 0.85; }
+
+  /* ── MAIN ── */
+  #main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--panel-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    z-index: 5;
+    backdrop-filter: blur(8px);
+    overflow: hidden;
+  }
+
+  .side-section {
+    border-bottom: 1px solid var(--border);
+    padding: 12px;
+  }
+  .side-label {
+    font-size: 11px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  /* upload */
+  #upload-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 14px 10px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    text-align: center;
+    gap: 4px;
+  }
+  #upload-area:hover {
+    border-color: var(--accent);
+    background: rgba(61,255,143,0.04);
+  }
+  #upload-area .up-icon { font-size: 22px; }
+  #upload-area .up-main { font-size: 14px; font-weight: 700; color: var(--accent); }
+  #upload-area .up-sub  { font-size: 11px; color: var(--text); font-family: 'Rajdhani', sans-serif; }
+  #file-in { display: none; }
+
+  /* status */
+  #status {
+    font-size: 11px;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--text-dim);
+    min-height: 28px;
+    padding: 4px 0;
+    line-height: 1.4;
+  }
+  #status.ok  { color: var(--accent); }
+  #status.err { color: var(--danger); }
+
+  /* individuals */
+  #ind-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 12px;
+  }
+  #ind-list::-webkit-scrollbar { width: 4px; }
+  #ind-list::-webkit-scrollbar-track { background: transparent; }
+  #ind-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .ind-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-size: 13px;
+  }
+  .ind-item:hover { background: rgba(61,255,143,0.05); }
+
+  .ind-check {
+    width: 14px; height: 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 3px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .ind-item.active .ind-check {
+    background: var(--swatch);
+    border-color: var(--swatch);
+  }
+  .ind-check::after {
+    content: '✓';
+    font-size: 9px;
+    color: #050d0a;
+    display: none;
+    font-weight: 700;
+  }
+  .ind-item.active .ind-check::after { display: block; }
+
+  .ind-swatch {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .ind-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+  }
+  .follow-btn {
+    margin-left: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .follow-btn:hover {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+  .follow-btn.active {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(0,201,255,0.1);
+    font-weight: 700;
+  }
+
+  .ind-item.follow-active .ind-name {
+    color: var(--accent2);
+    font-weight: 700;
+  }
+  .ind-count {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .ind-sel-btns {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .ind-sel-btns button {
+    flex: 1;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 0;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .ind-sel-btns button:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* camera modes */
+  .cam-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .cam-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    letter-spacing: 0.03em;
+  }
+  .cam-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .cam-btn.active { border-color: var(--accent2); color: #050d0a; background: var(--accent2); }
+
+  #follow-sliders {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .slider-row label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 46px;
+  }
+  .slider-row input[type=range] {
+    flex: 1;
+    accent-color: var(--accent2);
+    height: 3px;
+    cursor: pointer;
+  }
+  .slider-row span {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--accent2);
+    min-width: 36px;
+    text-align: right;
+  }
+
+  /* terrain */
+  .terrain-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .terrain-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .terrain-btn:hover { border-color: var(--warn); color: var(--warn); }
+  .terrain-btn.active { border-color: var(--warn); color: #050d0a; background: var(--warn); }
+
+
+
+  /* ── CESIUM ── */
+  #cesium-container {
+    flex: 1;
+    position: relative;
+    background: #000;
+  }
+  #cesiumContainer {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* splash */
+  #splash {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: rgba(5,13,10,0.85);
+    z-index: 20;
+    pointer-events: none;
+  }
+  #splash .splash-icon { font-size: 64px; }
+  #splash .splash-text {
+    font-size: 18px;
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── PLAYBACK BAR ── */
+  #playbar {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 40px);
+    max-width: 860px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px 12px;
+    z-index: 10;
+    backdrop-filter: blur(12px);
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  #playbar-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  #btn-play {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: #050d0a;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.15s;
+  }
+  #btn-play:hover { opacity: 0.82; }
+
+  #time-display {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    white-space: nowrap;
+    min-width: 130px;
+  }
+
+  .speed-btns {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+    align-items: center;
+  }
+  .speed-lbl {
+    font-size: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--muted);
+    margin-right: 4px;
+  }
+  .spd-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 3px 7px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .spd-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .spd-btn.active { background: var(--accent); color: #050d0a; border-color: var(--accent); }
+
+  #time-slider {
+    width: 100%;
+    accent-color: var(--accent);
+    height: 4px;
+  }
+
+  #progress-dates {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  /* ── INFO POPUP ── */
+  #info-popup {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    z-index: 15;
+    display: none;
+    backdrop-filter: blur(8px);
+    min-width: 180px;
+  }
+  #info-popup .info-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  #info-popup .info-row { color: var(--text-dim); line-height: 1.7; }
+  #info-popup .info-val { color: var(--text); }
+
+
+
+  /* ── COLUMN MAPPER MODAL ── */
+  #col-modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #col-modal-bg.show { display: flex; }
+
+  #col-modal {
+    background: #0e1f18;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  #col-modal h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+  .col-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .col-row label {
+    font-size: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .col-row select, .col-row input[type=number] {
+    background: #060f0b;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: 5px;
+    outline: none;
+    width: 100%;
+  }
+  .col-row select:focus { border-color: var(--accent); }
+
+  #coord-system-row { margin-bottom: 4px; }
+
+  #utm-zone-row {
+    display: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+  #utm-zone-row label { white-space: nowrap; min-width: 70px; }
+  #utm-zone-num { width: 70px !important; }
+
+  #col-modal-footer {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+  #col-modal-footer button {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 7px 18px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  #col-cancel { background: transparent; color: var(--text-dim); }
+  #col-cancel:hover { border-color: var(--danger); color: var(--danger); }
+  #col-confirm { background: var(--accent); color: #050d0a; border-color: var(--accent); }
+  #col-confirm:hover { opacity: 0.85; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<div id="header">
+  <div class="brand">
+    <div class="brand-sub">Continental Elephant Tracking Initiative's</div>
+    <div class="brand-title">🐘 Elephant Tracker 3D</div>
+  </div>
+  <div id="header-time">--</div>
+  <div class="header-sep"></div>
+  <div id="token-wrap">
+    <label>CESIUM TOKEN</label>
+    <input id="token-input" type="password" placeholder="Paste your Cesium ion access token…">
+  </div>
+  <button id="btn-init">INITIALISE ›</button>
+</div>
+
+<!-- ── MAIN ── -->
+<div id="main">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+
+    <div class="side-section">
+      <div class="side-label">Data</div>
+      <label id="upload-area" for="file-in">
+        <div class="up-icon">📂</div>
+        <div class="up-main">Load CSV</div>
+        <div class="up-sub">CSV file with GPS location fixes</div>
+      </label>
+      <input type="file" id="file-in" accept=".csv">
+      <div id="status" style="margin-top:8px;">Enter token and click INITIALISE</div>
+    </div>
+
+    <div class="side-section">
+      <div class="side-label">Camera mode</div>
+      <div class="cam-btns">
+        <button class="cam-btn active" data-cam="follow">🐘 Follow</button>
+        <button class="cam-btn" data-cam="cinematic">🎬 Cinematic</button>
+      </div>
+      <div id="follow-sliders">
+        <div class="slider-row">
+          <label>Altitude</label>
+          <input type="range" id="follow-alt" min="500" max="25000" step="500" value="5500">
+          <span id="follow-alt-val">5.5km</span>
+        </div>
+        <div class="slider-row">
+          <label>Pitch</label>
+          <input type="range" id="follow-pitch" min="-80" max="-5" step="5" value="-35">
+          <span id="follow-pitch-val">35°</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-section">
+      <div class="side-label">Terrain <span style="font-size:9px;color:var(--muted);text-transform:none;letter-spacing:0">(adds elevation relief)</span></div>
+      <div class="terrain-btns">
+        <button class="terrain-btn active" data-terrain="world">⛰ 3D Terrain</button>
+        <button class="terrain-btn" data-terrain="flat">🗺 Flat Earth</button>
+      </div>
+    </div>
+
+
+
+    <div class="side-section" style="flex-shrink:0;">
+      <div class="side-label">Individuals <span style="font-size:10px;color:var(--text-dim);text-transform:none;letter-spacing:0;font-weight:400"> — click Follow to track</span></div>
+      <div class="ind-sel-btns">
+        <button id="btn-all">All</button>
+        <button id="btn-none">None</button>
+      </div>
+    </div>
+
+    <div id="ind-list"></div>
+
+  </div><!-- /sidebar -->
+
+  <!-- CESIUM GLOBE -->
+  <div id="cesium-container">
+    <div id="cesiumContainer"></div>
+
+    <div id="splash">
+      <div class="splash-icon">🐘</div>
+      <div class="splash-text">Enter your Cesium token above to initialise the 3D globe</div>
+    </div>
+
+    <!-- PLAYBACK BAR -->
+    <div id="playbar">
+      <div id="playbar-top">
+        <button id="btn-play">▶</button>
+        <div id="time-display" style="display:none">--</div>
+        <div class="speed-btns">
+          <span class="speed-lbl" style="color:var(--text);">Speed</span>
+          <button class="spd-btn active" data-spd="2">Slow</button>
+          <button class="spd-btn" data-spd="5">Med</button>
+          <button class="spd-btn" data-spd="15">Fast</button>
+          <button class="spd-btn" data-spd="30">Max</button>
+        </div>
+      </div>
+      <input type="range" id="time-slider" min="0" max="1000" value="0" step="1">
+      <div id="progress-dates">
+        <span id="pd-start">--</span>
+        <span id="pd-end">--</span>
+      </div>
+    </div>
+
+    <!-- INFO POPUP -->
+    <div id="info-popup">
+      <div class="info-name" id="info-name">--</div>
+      <div class="info-row">Time: <span class="info-val" id="info-time">--</span></div>
+      <div class="info-row">Lat: <span class="info-val" id="info-lat">--</span></div>
+      <div class="info-row">Lon: <span class="info-val" id="info-lon">--</span></div>
+      <div class="info-row">Fixes: <span class="info-val" id="info-fixes">--</span></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- COLUMN MAPPER MODAL -->
+<div id="col-modal-bg">
+  <div id="col-modal">
+    <h3>Map your CSV columns</h3>
+
+    <div class="col-row" id="coord-system-row">
+      <label>Coordinate system</label>
+      <select id="coord-system">
+        <option value="latlng">Latitude / Longitude (WGS84)</option>
+        <option value="utm">UTM (easting / northing)</option>
+      </select>
+    </div>
+
+    <div class="col-row">
+      <label>Individual ID</label>
+      <select id="col-id"></select>
+    </div>
+    <div class="col-row">
+      <label id="lbl-x">Longitude</label>
+      <select id="col-x"></select>
+    </div>
+    <div class="col-row">
+      <label id="lbl-y">Latitude</label>
+      <select id="col-y"></select>
+    </div>
+    <div class="col-row">
+      <label>Timestamp</label>
+      <select id="col-ts"></select>
+    </div>
+
+    <div class="col-row" id="utm-zone-row" style="flex-direction:row;align-items:center;gap:8px;">
+      <label style="white-space:nowrap;min-width:70px;">UTM zone</label>
+      <input id="utm-zone-num" type="number" min="1" max="60" value="37" style="width:70px;">
+      <select id="utm-zone-hemi" style="flex:1;">
+        <option value="N">Northern hemisphere</option>
+        <option value="S">Southern hemisphere</option>
+      </select>
+    </div>
+
+    <div id="col-modal-footer">
+      <button id="col-cancel">Cancel</button>
+      <button id="col-confirm">Load data ↗</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+// GLOBALS
+// ─────────────────────────────────────────────────────────────────
+let viewer = null;
+let elephantData = {};   // { id: [{lon, lat, ts}] }
+let activeIds = new Set();
+let entities = {};       // cesium entity refs per id
+let trailEntities = {};  // trail polyline refs per id
+let labelEntities = {};  // name label per id
+let allTimes = [];       // sorted ms timestamps (union)
+let tMin, tMax;
+let playing = false;
+let rafId = null;
+let currentIdx = 0;
+let stepsPerSec = 2; // index steps to advance per real second
+let cameraMode = 'follow';
+let followAlt = 5500;
+let followPitch = -35;
+let followTarget = null;
+let lastRealTime = null;
+const MS_PER_STEP = 16; // ~60fps
+
+const COLORS = [
+  '#3dff8f','#00c9ff','#ffb347','#ff6b9d','#c77dff',
+  '#4fc3f7','#aed581','#ff8a65','#f48fb1','#80cbc4',
+  '#e6ee9c','#ce93d8','#80deea','#bcaaa4','#a5d6a7'
+];
+
+// ─────────────────────────────────────────────────────────────────
+// INIT CESIUM
+// ─────────────────────────────────────────────────────────────────
+document.getElementById('btn-init').addEventListener('click', () => {
+  const token = document.getElementById('token-input').value.trim();
+  if (!token) { setStatus('Please paste your Cesium ion access token', 'err'); return; }
+  initCesium(token);
+});
+
+function initCesium(token) {
+  Cesium.Ion.defaultAccessToken = token;
+  setStatus('Initialising globe…');
+  try {
+    viewer = new Cesium.Viewer('cesiumContainer', {
+      terrainProvider: new Cesium.CesiumTerrainProvider({
+        url: Cesium.IonResource.fromAssetId(1),
+        requestWaterMask: true,
+        requestVertexNormals: true
+      }),
+      imageryProvider: new Cesium.UrlTemplateImageryProvider({
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        credit: 'Tiles © Esri'
+      }),
+      animation: false,
+      baseLayerPicker: false,
+      fullscreenButton: false,
+      geocoder: false,
+      homeButton: false,
+      infoBox: false,
+      sceneModePicker: false,
+      selectionIndicator: false,
+      timeline: false,
+      navigationHelpButton: false,
+      creditContainer: document.createElement('div'),
+    });
+
+    viewer.scene.globe.enableLighting = false;
+    viewer.scene.globe.depthTestAgainstTerrain = false;
+    viewer.scene.fog.enabled = false;
+
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(20, 0, 8000000)
+    });
+
+    document.getElementById('splash').style.display = 'none';
+    setStatus('Globe ready — load a CSV to begin', 'ok');
+
+
+
+  } catch(err) {
+    setStatus('Cesium init failed — check your token. Error: ' + err.message, 'err');
+    console.error('Cesium init error:', err);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TERRAIN TOGGLE
+// ─────────────────────────────────────────────────────────────────
+document.querySelectorAll('.terrain-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!viewer) return;
+    document.querySelectorAll('.terrain-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const t = btn.dataset.terrain;
+    if (t === 'world') {
+      viewer.terrainProvider = new Cesium.CesiumTerrainProvider({
+        url: Cesium.IonResource.fromAssetId(1),
+        requestWaterMask: true,
+        requestVertexNormals: true
+      });
+      viewer.scene.globe.depthTestAgainstTerrain = false;
+    } else {
+      viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
+      viewer.scene.globe.depthTestAgainstTerrain = false;
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// CAMERA MODES
+// ─────────────────────────────────────────────────────────────────
+document.querySelectorAll('.cam-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cameraMode = btn.dataset.cam;
+  });
+});
+
+document.getElementById('follow-alt').addEventListener('input', e => {
+  followAlt = parseInt(e.target.value);
+  document.getElementById('follow-alt-val').textContent = (followAlt / 1000).toFixed(1) + 'km';
+});
+
+document.getElementById('follow-pitch').addEventListener('input', e => {
+  followPitch = parseInt(e.target.value);
+  document.getElementById('follow-pitch-val').textContent = Math.abs(followPitch) + '°';
+});
+
+function flyToOverview() {
+  if (!viewer) { console.warn('flyToOverview: no viewer'); return; }
+  const ids = Object.keys(elephantData);
+  if (!ids.length) { console.warn('flyToOverview: no data'); return; }
+  const lons = [], lats = [];
+  ids.forEach(id => elephantData[id].forEach(f => { lons.push(f.lon); lats.push(f.lat); }));
+  const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const cLon = (minLon + maxLon) / 2, cLat = (minLat + maxLat) / 2;
+  const spanDeg = Math.max(maxLon - minLon, maxLat - minLat, 0.01);
+  const alt = Math.min(Math.max(spanDeg * 111000 * 1.5, 8000), 300000);
+  console.log('flyToOverview:', cLon, cLat, 'alt:', alt, 'span:', spanDeg);
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(cLon, cLat, alt),
+    orientation: {
+      heading: 0,
+      pitch: Cesium.Math.toRadians(-55),
+      roll: 0
+    },
+    duration: 2.0
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// UTM → LAT/LNG
+// ─────────────────────────────────────────────────────────────────
+function utmToLatLng(easting, northing, zoneNum, hemi) {
+  const k0=0.9996, a=6378137, e2=0.00669437999014, e1sq=e2/(1-e2);
+  const x=easting-500000;
+  const y=hemi==='S'?northing-10000000:northing;
+  const M=y/k0;
+  const mu=M/(a*(1-e2/4-3*e2*e2/64-5*e2*e2*e2/256));
+  const e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
+  const phi1=mu+(3*e1/2-27*e1*e1*e1/32)*Math.sin(2*mu)
+            +(21*e1*e1/16-55*e1*e1*e1*e1/32)*Math.sin(4*mu)
+            +(151*e1*e1*e1/96)*Math.sin(6*mu);
+  const N1=a/Math.sqrt(1-e2*Math.sin(phi1)*Math.sin(phi1));
+  const T1=Math.tan(phi1)*Math.tan(phi1);
+  const C1=e1sq*Math.cos(phi1)*Math.cos(phi1);
+  const R1=a*(1-e2)/Math.pow(1-e2*Math.sin(phi1)*Math.sin(phi1),1.5);
+  const D=x/(N1*k0);
+  const lat=phi1-(N1*Math.tan(phi1)/R1)*(D*D/2
+    -(5+3*T1+10*C1-4*C1*C1-9*e1sq)*D*D*D*D/24
+    +(61+90*T1+298*C1+45*T1*T1-252*e1sq-3*C1*C1)*D*D*D*D*D*D/720);
+  const lon0=(zoneNum-1)*6-180+3;
+  const lng=(lon0+(D-(1+2*T1+C1)*D*D*D/6+(5-2*C1+28*T1-3*C1*C1+8*e1sq+24*T1*T1)*D*D*D*D*D/120)/Math.cos(phi1))*180/Math.PI;
+  return { lat: lat*180/Math.PI, lng };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TIMESTAMP PARSER
+// ─────────────────────────────────────────────────────────────────
+function parseTs(raw) {
+  if (!raw) return NaN;
+  const s = String(raw).trim();
+
+  // Unix numeric — always unambiguous
+  if (/^\d{10,13}$/.test(s)) {
+    const n = parseInt(s, 10);
+    return n > 1e12 ? n : n * 1000;
+  }
+
+  // ISO date-only e.g. "2024-03-15"
+  // JS parses these as UTC midnight, but we want local midnight to match
+  // datetime strings like "2024-03-15 00:00:00" which JS parses as local.
+  // Fix: append T00:00:00 (no Z) to force local interpretation.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    return new Date(s + 'T00:00:00').getTime();
+  }
+
+  // Datetime with space separator e.g. "2024-03-15 00:00:00" or "2024-03-15 14:32:00"
+  // JS Date() may reject the space — replace with T to make it valid ISO local time.
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s)) {
+    return new Date(s.replace(' ', 'T')).getTime();
+  }
+
+  // Anything else (already has T, has timezone offset, etc.) — parse as-is
+  return new Date(s).getTime();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CSV LOADING & COLUMN MAPPER
+// ─────────────────────────────────────────────────────────────────
+document.getElementById('file-in').addEventListener('change', e => {
+  const f = e.target.files[0];
+  e.target.value = ''; // reset so same file can be re-loaded
+  if (!f) return;
+  if (!viewer) {
+    setStatus('⚠ Globe not ready — paste your token and click INITIALISE first', 'err');
+    return;
+  }
+  setStatus('Parsing CSV…');
+  Papa.parse(f, {
+    header: true,
+    skipEmptyLines: true,
+    dynamicTyping: false,
+    complete: r => {
+      if (!r.data.length) { setStatus('Empty CSV', 'err'); return; }
+      openColMapper(Object.keys(r.data[0]), r.data);
+    },
+    error: err => setStatus('CSV error: ' + err.message, 'err')
+  });
+});
+
+function guessCol(cols, hints) {
+  for (const h of hints) {
+    const m = cols.find(c => c.toLowerCase() === h.toLowerCase());
+    if (m) return m;
+  }
+  return cols[0];
+}
+
+function openColMapper(cols, rawData) {
+  const modal = document.getElementById('col-modal-bg');
+  modal.classList.add('show');
+
+  const selectors = {
+    'col-id': ['extra__subject__name','id','ID','individual','elephant_id','animal','name','tag'],
+    'col-x':  ['extra__location__longitude','x','X','lon','LON','longitude','LONGITUDE','long','easting'],
+    'col-y':  ['extra__location__latitude','y','Y','lat','LAT','latitude','LATITUDE','northing'],
+    'col-ts': ['fixtime','timestamp','TIMESTAMP','time','TIME','datetime','DATETIME','date','DATE','t']
+  };
+
+  ['col-id','col-x','col-y','col-ts'].forEach(sid => {
+    const sel = document.getElementById(sid);
+    sel.innerHTML = cols.map(c => `<option value="${c}">${c}</option>`).join('');
+    sel.value = guessCol(cols, selectors[sid]);
+  });
+
+  // coord system toggle
+  const csSel = document.getElementById('coord-system');
+  const utmRow = document.getElementById('utm-zone-row');
+  const lblX = document.getElementById('lbl-x');
+  const lblY = document.getElementById('lbl-y');
+  csSel.value = 'latlng';
+  utmRow.style.display = 'none';
+  csSel.addEventListener('change', () => {
+    const isUtm = csSel.value === 'utm';
+    utmRow.style.display = isUtm ? 'flex' : 'none';
+    lblX.textContent = isUtm ? 'Easting (X)' : 'Longitude';
+    lblY.textContent = isUtm ? 'Northing (Y)' : 'Latitude';
+  });
+
+  document.getElementById('col-cancel').onclick = () => modal.classList.remove('show');
+  document.getElementById('col-confirm').onclick = () => {
+    const idCol  = document.getElementById('col-id').value;
+    const xCol   = document.getElementById('col-x').value;
+    const yCol   = document.getElementById('col-y').value;
+    const tsCol  = document.getElementById('col-ts').value;
+    const isUtm  = csSel.value === 'utm';
+    const zoneN  = parseInt(document.getElementById('utm-zone-num').value, 10);
+    const hemi   = document.getElementById('utm-zone-hemi').value;
+    modal.classList.remove('show');
+    loadData(rawData, idCol, xCol, yCol, tsCol, isUtm, zoneN, hemi);
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// DATA LOADING → CESIUM ENTITIES
+// ─────────────────────────────────────────────────────────────────
+function loadData(rows, idCol, xCol, yCol, tsCol, isUtm, zoneN, hemi) {
+  setStatus('Processing…');
+  clearAll();
+
+  const grouped = {};
+  let skipped = 0;
+
+  rows.forEach(row => {
+    const id  = String(row[idCol] || '').trim() || 'Unknown';
+    let lon, lat;
+    if (isUtm) {
+      const e = parseFloat(row[xCol]), n = parseFloat(row[yCol]);
+      if (isNaN(e) || isNaN(n)) { skipped++; return; }
+      const ll = utmToLatLng(e, n, zoneN, hemi);
+      lon = ll.lng; lat = ll.lat;
+    } else {
+      lon = parseFloat(row[xCol]); lat = parseFloat(row[yCol]);
+    }
+    const ts = parseTs(row[tsCol]);
+    if (isNaN(lon) || isNaN(lat) || isNaN(ts)) { skipped++; return; }
+    if (lon < -180 || lon > 180 || lat < -90 || lat > 90) { skipped++; return; }
+    (grouped[id] = grouped[id] || []).push({ lon, lat, ts });
+  });
+
+  const ids = Object.keys(grouped);
+  if (!ids.length) { setStatus('No valid rows found', 'err'); return; }
+
+  ids.forEach(id => grouped[id].sort((a,b) => a.ts - b.ts));
+
+  elephantData = grouped;
+  activeIds = new Set(ids);
+
+  // union timeline
+  const tsSet = new Set();
+  ids.forEach(id => grouped[id].forEach(f => tsSet.add(f.ts)));
+  allTimes = [...tsSet].sort((a,b) => a-b);
+  tMin = allTimes[0]; tMax = allTimes[allTimes.length-1];
+
+  buildSidebar(ids);
+  buildEntities();
+  showPlaybar();
+  // Small delay lets Cesium finish loading entities before flying
+  setTimeout(flyToOverview, 800);
+
+  const msg = `Loaded ${ids.length} individual${ids.length>1?'s':''}, ${rows.length - skipped} fixes`;
+  setStatus(msg + (skipped ? ` (${skipped} skipped)` : ''), 'ok');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SIDEBAR INDIVIDUALS
+// ─────────────────────────────────────────────────────────────────
+function buildSidebar(ids) {
+  const list = document.getElementById('ind-list');
+  list.innerHTML = '';
+  // Set first individual as default follow target
+  if (ids.length) {
+    followTarget = ids[0];
+  }
+  ids.forEach((id, i) => {
+    const color = COLORS[i % COLORS.length];
+    const fixes = elephantData[id].length;
+    const div = document.createElement('div');
+    div.className = 'ind-item active';
+    div.dataset.id = id;
+    div.style.setProperty('--swatch', color);
+    div.innerHTML = `
+      <div class="ind-check"></div>
+      <div class="ind-swatch" style="background:${color}"></div>
+      <div class="ind-name">${id}</div>
+      <div class="ind-count">${fixes} fixes</div>
+      <button class="follow-btn" data-id="${id}">Follow</button>`;
+
+    // Checkbox = toggle visibility (click anywhere except the follow button)
+    div.addEventListener('click', (e) => {
+      if (e.target.classList.contains('follow-btn')) return;
+      toggleInd(id, div);
+    });
+
+    // Follow button = set camera target
+    div.querySelector('.follow-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      followTarget = id;
+      document.querySelectorAll('.follow-btn').forEach(b => {
+        b.classList.remove('active');
+        b.textContent = 'Follow';
+      });
+      e.target.classList.add('active');
+      e.target.textContent = '● Following';
+    });
+
+    list.appendChild(div);
+  });
+
+  // Mark first individual as following by default
+  const firstBtn = list.querySelector('.follow-btn');
+  if (firstBtn) {
+    firstBtn.classList.add('active');
+    firstBtn.textContent = '● Following';
+  }
+}
+
+function toggleInd(id, el) {
+  if (activeIds.has(id)) {
+    activeIds.delete(id);
+    el.classList.remove('active');
+  } else {
+    activeIds.add(id);
+    el.classList.add('active');
+  }
+  updateVisibility();
+}
+
+document.getElementById('btn-all').addEventListener('click', () => {
+  Object.keys(elephantData).forEach(id => activeIds.add(id));
+  document.querySelectorAll('.ind-item').forEach(el => el.classList.add('active'));
+  updateVisibility();
+});
+document.getElementById('btn-none').addEventListener('click', () => {
+  activeIds.clear();
+  document.querySelectorAll('.ind-item').forEach(el => el.classList.remove('active'));
+  updateVisibility();
+});
+
+function updateVisibility() {
+  Object.keys(entities).forEach(id => {
+    const show = activeIds.has(id);
+    if (entities[id]) entities[id].show = show;
+    if (trailEntities[id]) trailEntities[id].show = show;
+    if (labelEntities[id]) labelEntities[id].show = show;
+    // Clear trail data for hidden individuals so CallbackProperty returns null
+    if (!show && liveState[id]) liveState[id].trail = [];
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// IMAGERY SWITCHER
+// ─────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────
+// BUILD CESIUM ENTITIES
+// ─────────────────────────────────────────────────────────────────
+// Live state per-individual: current interpolated position + trail points
+const liveState = {};  // { id: { pos: Cartesian3, trail: Cartesian3[] } }
+
+function buildEntities() {
+  const ids = Object.keys(elephantData);
+  ids.forEach((id, i) => {
+    const color = COLORS[i % COLORS.length];
+    const cesColor = Cesium.Color.fromCssColorString(color);
+    const first = elephantData[id][0];
+
+    // Initialise live state
+    liveState[id] = {
+      pos:   Cesium.Cartesian3.fromDegrees(first.lon, first.lat),
+      trail: []
+    };
+
+    // Point with CallbackProperty position — Cesium polls this every frame
+    const pt = viewer.entities.add({
+      position: new Cesium.CallbackProperty(() => liveState[id].pos, false),
+      point: {
+        pixelSize: 14,
+        color: cesColor,
+        outlineColor: Cesium.Color.fromCssColorString('#050d0a'),
+        outlineWidth: 2,
+        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
+      },
+      label: {
+        text: id,
+        font: '700 13px Rajdhani',
+        fillColor: cesColor,
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -16),
+        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        show: true
+      }
+    });
+    entities[id] = pt;
+
+    // Trail polyline — fixed long trail via CallbackProperty
+    trailEntities[id] = viewer.entities.add({
+      polyline: {
+        positions: new Cesium.CallbackProperty(() => {
+          const pts = liveState[id] ? liveState[id].trail : [];
+          return pts.length >= 2 ? pts : null;
+        }, false),
+        width: 4,
+        material: new Cesium.PolylineGlowMaterialProperty({
+          glowPower: 0.2,
+          color: cesColor.withAlpha(0.75)
+        }),
+        clampToGround: true
+      }
+    });
+
+  });
+}
+
+function clearAll() {
+  if (viewer) viewer.entities.removeAll();
+  entities = {}; trailEntities = {}; labelEntities = {};
+  Object.keys(liveState).forEach(k => delete liveState[k]);
+  elephantData = {}; activeIds = new Set(); allTimes = [];
+  currentIdx = 0;
+  if (playing) stopPlayback();
+  document.getElementById('ind-list').innerHTML = '';
+  document.getElementById('playbar').style.display = 'none';
+  document.getElementById('info-popup').style.display = 'none';
+}
+
+// ─────────────────────────────────────────────────────────────────
+// PLAYBACK
+// ─────────────────────────────────────────────────────────────────
+function showPlaybar() {
+  const bar = document.getElementById('playbar');
+  bar.style.display = 'flex';
+  const slider = document.getElementById('time-slider');
+  slider.max = allTimes.length - 1;
+  slider.value = 0;
+  document.getElementById('pd-start').textContent = fmtDate(tMin);
+  document.getElementById('pd-end').textContent   = fmtDate(tMax);
+  updateFrame(0);
+}
+
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (playing) stopPlayback(); else startPlayback();
+});
+
+document.getElementById('time-slider').addEventListener('input', e => {
+  currentIdx = parseInt(e.target.value, 10);
+  updateFrame(currentIdx);
+});
+
+document.querySelectorAll('.spd-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.spd-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    stepsPerSec = parseFloat(btn.dataset.spd);
+    if (playing) { stopPlayback(); startPlayback(); }
+  });
+});
+
+function startPlayback() {
+  playing = true;
+  document.getElementById('btn-play').textContent = '⏸';
+  if (currentIdx >= allTimes.length - 1) currentIdx = 0;
+  scheduleNextTick();
+}
+
+function stopPlayback() {
+  playing = false;
+  document.getElementById('btn-play').textContent = '▶';
+  if (rafId) { clearTimeout(rafId); rafId = null; }
+}
+
+function scheduleNextTick() {
+  if (!playing) return;
+  const msPerStep = 1000 / stepsPerSec; // e.g. stepsPerSec=2 -> 500ms per step
+  rafId = setTimeout(() => {
+    if (!playing) return;
+    currentIdx++;
+    if (currentIdx >= allTimes.length) { stopPlayback(); return; }
+    updateFrame(currentIdx);
+    document.getElementById('time-slider').value = currentIdx;
+    scheduleNextTick();
+  }, msPerStep);
+}
+
+
+function updateFrame(idx) {
+  const currentMs = allTimes[idx];
+  document.getElementById('time-display').textContent = fmtDateTime(currentMs);
+  const ht = document.getElementById('header-time');
+  if (ht) ht.textContent = fmtDateTime(currentMs);
+
+  // Update each individual
+  Object.keys(elephantData).forEach(id => {
+    const fixes = elephantData[id];
+    // find the bracket: last fix before and first fix after currentMs
+    let fi = fixes.findIndex(f => f.ts > currentMs);
+    if (fi === -1) fi = fixes.length;
+    if (fi === 0) return;
+    const fPrev = fixes[fi - 1];
+    const fNext = fi < fixes.length ? fixes[fi] : null;
+
+    // Interpolate position between prev and next fix for smooth movement
+    let lon, lat;
+    if (fNext && fNext.ts > fPrev.ts) {
+      const t = (currentMs - fPrev.ts) / (fNext.ts - fPrev.ts);
+      lon = fPrev.lon + (fNext.lon - fPrev.lon) * t;
+      lat = fPrev.lat + (fNext.lat - fPrev.lat) * t;
+    } else {
+      lon = fPrev.lon;
+      lat = fPrev.lat;
+    }
+
+    // Update live state — CallbackProperty picks this up automatically
+    if (liveState[id]) {
+      liveState[id].pos = Cesium.Cartesian3.fromDegrees(lon, lat);
+
+      // Rebuild trail — last 200 fixes + interpolated tip
+      const TRAIL_LEN = 200;
+      const trailStart = Math.max(0, fi - TRAIL_LEN);
+      const pts = [];
+      for (let k = trailStart; k < fi; k++) {
+        pts.push(Cesium.Cartesian3.fromDegrees(fixes[k].lon, fixes[k].lat));
+      }
+      pts.push(liveState[id].pos);
+      liveState[id].trail = pts;
+
+
+    }
+
+    if (entities[id] && entities[id].label) {
+      entities[id].label.show = activeIds.has(id);
+    }
+
+    // follow cam — track followTarget if set, otherwise first active
+    const followId = followTarget && activeIds.has(followTarget) ? followTarget : [...activeIds][0];
+    if (cameraMode === 'follow' && id === followId && liveState[id]) {
+      if (true) {
+        viewer.camera.lookAt(
+          liveState[id].pos,
+          new Cesium.HeadingPitchRange(
+            Cesium.Math.toRadians(0),
+            Cesium.Math.toRadians(followPitch),
+            followAlt
+          )
+        );
+      }
+    }
+
+    // cinematic — same distance as before but fixed heading, no dizzying rotation
+    if (cameraMode === 'cinematic' && id === followId && liveState[id]) {
+      if (true) {
+        viewer.camera.lookAt(
+          liveState[id].pos,
+          new Cesium.HeadingPitchRange(
+            Cesium.Math.toRadians(45),   // fixed SE heading
+            Cesium.Math.toRadians(-22),  // low angle, dramatic terrain view
+            5000                          // same distance users liked
+          )
+        );
+      }
+    }
+  });
+
+  // info popup — show first active
+  const firstActive = [...activeIds][0];
+  if (firstActive && elephantData[firstActive]) {
+    const fixes = elephantData[firstActive];
+    let fi = fixes.findIndex(f => f.ts > currentMs);
+    if (fi === -1) fi = fixes.length;
+    if (fi > 0) {
+      fi--;
+      const f = fixes[fi];
+      document.getElementById('info-popup').style.display = 'block';
+      document.getElementById('info-name').textContent = firstActive;
+      document.getElementById('info-time').textContent  = fmtDateTime(f.ts);
+      document.getElementById('info-lat').textContent   = f.lat.toFixed(5) + '°';
+      document.getElementById('info-lon').textContent   = f.lon.toFixed(5) + '°';
+      document.getElementById('info-fixes').textContent = `${fi+1} / ${fixes.length}`;
+    }
+  }
+
+
+}
+
+// ─────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────
+function fmtDate(ms) {
+  if (!ms) return '--';
+  return new Date(ms).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+function fmtDateTime(ms) {
+  if (!ms) return '--';
+  return new Date(ms).toLocaleString('en-GB', {
+    day:'2-digit', month:'short', year:'numeric',
+    hour:'2-digit', minute:'2-digit'
+  });
+}
+
+function setStatus(msg, cls) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = cls || '';
+}
+</script>
+</body>
+</html>
